@@ -1,62 +1,31 @@
-from flask_restful import Resource, reqparse
-from flask_jwt import jwt_required
-import sqlite3
-from models.item import ItemModel
+from db import db
 
-class Item(Resource):
+class ItemModel(db.Model):
+    __tablename__ = 'items'
 
-    parser = reqparse.RequestParser()
-    parser.add_argument('price',
-    type=float,
-    required=True,
-    help="This field cannot be left blank!")
+    id = db.Column(db.Integer, primary_key = True)
+    name = db.Column(db.String(80))
+    price = db.Column(db.Float(precision=2))
 
-    parser = reqparse.RequestParser()
-    parser.add_argument('store_id',
-    type=int,
-    required=True,
-    help="Every item needs a store id")
+    store_id = db.Column(db.Integer, db.ForeignKey('stores.id'))
+    store = db.relationship('StoreModel')
 
-    @jwt_required()
-    def get(self, name):
-        item = ItemModel.find_by_name(name)
-        if item:
-            return item.json()
-        return {'message':'item not found'}, 404
+    def __init__(self, name, price, store_id):
+        self.name = name
+        self.price = price
+        self.store_id = store_id
 
-    def post(self, name):
-        if ItemModel.find_by_name(name):
-            return {'message': "An item with name '{}' already exists.".format(name)},400
-        """ We take the data only after we check if the item is in the datalist or not
-        then we take the reqparse data"""
-        data = Item.parser.parse_args()
-        item = ItemModel(name, data['price'], data['store_id'])
-        try:
-            item.save_to_db()
-        except:
-            return {"message":"An error occurred inserting the item"}, 500 #internal server error
-        return item.json(), 201
+    def json(self):
+        return {'name':self.name, 'price':self.price}
 
-    def delete(self, name):
-        item = ItemModel.find_by_name(name)
-        if item:
-            item.delete_from_db()
-        return {"message":"item deleted"}
+    @classmethod
+    def find_by_name(cls, name):
+        return cls.query.filter_by(name=name).first()
 
-    def put(self, name):
-        #Since PUT is idempotent we don't need to check if the item is in the datalist
-        data = Item.parser.parse_args()
-        item = ItemModel.find_by_name(name)
+    def save_to_db(self):
+        db.session.add(self)
+        db.session.commit()
 
-        if item is None:
-            item = ItemModel(name, data['price'], data['store_id'])
-        else:
-            item.price = data['price']
-        item.save_to_db()
-
-        return item.json()
-
-
-class ItemList(Resource) :
-    def get(self):
-        return {'items':list(map(lambda x: x.json(), ItemModel.query.all()))}
+    def delete_from_db(self):
+        db.session.delete(self)
+        de.session.commit()

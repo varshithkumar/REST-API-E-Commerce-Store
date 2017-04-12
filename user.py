@@ -1,28 +1,25 @@
 import sqlite3
-from flask_restful import Resource, reqparse
-from models.user import UserModel
+from db import db
 
-class UserRegister(Resource):
+class UserModel(db.Model):
 
-    parser = reqparse.RequestParser()
+    __tablename__ = 'users'
+    id = db.Column(db.Integer, primary_key = True)
+    username = db.Column(db.String(80))
+    password = db.Column(db.String(80))
 
-    parser.add_argument('username',
-    type = str,
-    required = True,
-    help="This field cannot be left blank!")
+    def __init__(self, username, password):
+        self.username = username
+        self.password = password
 
-    parser.add_argument('password',
-    type = str,
-    required = True,
-    help="This field cannot be left blank!")
+    def save_to_db(self):
+        db.session.add(self)
+        db.session.commit()
 
+    @classmethod
+    def find_by_username(cls, username):
+        return cls.query.filter_by(username=username).first()
 
-    def post(self):
-        data = UserRegister.parser.parse_args()
-        if UserModel.find_by_username(data['username']):
-            return {'message':'A user with that username already exists'}, 400
-
-        user = UserModel(**data) #will get all the values for keys in the dictionary
-        user.save_to_db()
-        
-        return {'message':'User created successfully'}, 201
+    @classmethod
+    def find_by_id(cls, _id):
+        return cls.query.filter_by(id = _id).first()
